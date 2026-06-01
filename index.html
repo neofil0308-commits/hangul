@@ -351,6 +351,10 @@ img.twe{display:inline-block;height:1em;width:1em;margin:0 .04em;vertical-align:
 .gate-card input{font-family:'Jua',sans-serif;font-size:1.6rem;text-align:center;width:150px;padding:10px;border-radius:16px;border:3px solid #e7d6bd;outline:none;color:var(--ink);}
 .gate-card .gmsg{font-family:'Gaegu',cursive;font-weight:700;color:var(--trace-d);min-height:1.2em;margin-top:8px;}
 .gate-card .modal-btns{margin-top:14px;display:flex;gap:10px;justify-content:center;}
+.setbox .toggle{display:block;width:100%;max-width:260px;margin:8px auto 0;background:var(--match);box-shadow:0 4px 0 var(--match-d);}
+.setbox .toggle.off{background:#cbb8a0;box-shadow:0 4px 0 #a99478;}
+.setbox .vrow{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:300px;margin:10px auto 0;font-family:'Jua',sans-serif;color:var(--ink);font-size:1rem;}
+.setbox .vrow input[type=range]{flex:1;accent-color:var(--match);height:26px;}
 </style>
 </head>
 <body>
@@ -445,6 +449,8 @@ img.twe{display:inline-block;height:1em;width:1em;margin:0 .04em;vertical-align:
 
   <section id="set" class="screen"><div class="section-title">설정</div><div class="hint">소리와 도장을 관리해요 ⚙️</div>
     <div class="setbox"><h4>학습 리포트</h4><div class="report" id="report"></div><div class="hint" id="reportStreak" style="margin:10px 0 0"></div></div>
+    <div class="setbox"><h4>소리</h4><button class="mbtn toggle" id="bgmToggle">배경음악: 켜짐</button><button class="mbtn toggle" id="sfxToggle">효과음: 켜짐</button></div>
+    <div class="setbox"><h4>음량</h4><label class="vrow">목소리<input type="range" id="volVoice" min="0" max="100" step="5"></label><label class="vrow">효과음<input type="range" id="volSfx" min="0" max="100" step="5"></label><label class="vrow">배경음악<input type="range" id="volBgm" min="0" max="100" step="5"></label></div>
     <div class="setbox"><h4>성우(목소리)</h4><div class="cat-pills voice" id="voicePick"></div></div>
     <div class="setbox"><h4>말하기 속도</h4><div class="cat-pills speed" id="speedPick"></div><button class="playbtn" id="speedTest" style="background:#7aa0d6;box-shadow:0 5px 0 #5b7fb5">🔊 소리 들어보기</button></div>
     <div class="setbox"><h4>도장</h4><div class="hint" id="setStickerCount" style="margin:0 0 12px">모은 도장: 0개</div><button class="mbtn" id="resetStickers" style="background:#d98a8a;box-shadow:0 4px 0 #c06a6a">도장 초기화</button></div>
@@ -533,19 +539,22 @@ const STROKES={
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v===null?d:v;}catch(e){return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 let RATE=parseFloat(lsGet('hp_rate','0.8'))||0.8;
-let koVoice=null;
-function loadVoices(){const vs=window.speechSynthesis?speechSynthesis.getVoices():[];const kos=vs.filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ko'));koVoice=kos.find(v=>/yuna|enhanced|premium|siri/i.test(v.name))||kos[0]||null;}
+let koVoice=null,koVoices=[];
+function loadVoices(){const vs=window.speechSynthesis?speechSynthesis.getVoices():[];const kos=vs.filter(v=>v.lang&&v.lang.toLowerCase().startsWith('ko'));koVoices=kos;koVoice=kos.find(v=>/yuna|enhanced|premium|siri/i.test(v.name))||kos[0]||null;}
 if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
 let VOICE=lsGet('hp_voice','f');
+function vget(k,d){var x=parseFloat(lsGet(k,String(d)));return isNaN(x)?d:x;}
+var volVoice=vget('hp_vol_voice',1),volSfx=vget('hp_vol_sfx',0.9),volBgm=vget('hp_vol_bgm',0.4);
 let audioEl=null;
 function keyOf(t){return [...t].map(c=>c.codePointAt(0).toString(16)).join('-');}
-function deviceSpeak(t,cb){if(!('speechSynthesis' in window)){if(cb)cb();return;}try{speechSynthesis.cancel();}catch(e){}const u=new SpeechSynthesisUtterance(t);u.lang='ko-KR';u.rate=RATE;u.pitch=1.05;if(koVoice)u.voice=koVoice;if(cb)u.onend=cb;speechSynthesis.speak(u);}
+function deviceSpeak(t,cb){if(!('speechSynthesis' in window)){if(cb)cb();return;}try{speechSynthesis.cancel();}catch(e){}var u=new SpeechSynthesisUtterance(t);u.lang='ko-KR';u.rate=RATE;var pitch=1.05,v=koVoice;if(VOICE==='kid'){pitch=1.6;}else if(VOICE==='m'){pitch=0.75;var mv=koVoices.find(function(x){return /injoon|injun|male|minsu|namja|gyu/i.test(x.name);});if(mv)v=mv;}else{var fv=koVoices.find(function(x){return /yuna|sora|nara|heami|female/i.test(x.name);});if(fv)v=fv;}u.volume=Math.max(0,Math.min(1,volVoice));u.pitch=pitch;if(v)u.voice=v;if(cb)u.onend=cb;speechSynthesis.speak(u);}
 let speechReady=false;
 function primeSpeech(){if(speechReady)return;speechReady=true;try{if('speechSynthesis' in window){var u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='ko-KR';speechSynthesis.speak(u);}}catch(e){}}
 document.addEventListener('pointerdown',primeSpeech,true);
 document.addEventListener('touchend',primeSpeech,true);
 var USE_MP3=false;
-(function(){try{fetch('audio/'+VOICE+'/'+keyOf('\uac00')+'.mp3',{method:'HEAD'}).then(function(r){if(r&&r.ok)USE_MP3=true;}).catch(function(){});}catch(e){}})();
+function probeMp3(){try{fetch('audio/'+VOICE+'/'+keyOf('\uac00')+'.mp3',{method:'HEAD'}).then(function(r){USE_MP3=!!(r&&r.ok);}).catch(function(){});}catch(e){}}
+probeMp3();
 function speakOne(t,cb){
   if(!USE_MP3){deviceSpeak(t,cb);return;}
   try{if('speechSynthesis' in window)speechSynthesis.cancel();}catch(e){}
@@ -556,7 +565,7 @@ function speakOne(t,cb){
   a.onplay=a.onplaying=function(){started=true;clearTimeout(tm);};
   a.onended=function(){if(!done){done=true;clearTimeout(tm);if(cb)cb();}};
   try{a.playbackRate=Math.max(0.5,Math.min(2,RATE/0.8));}catch(e){}
-  a.src='audio/'+VOICE+'/'+keyOf(t)+'.mp3';
+  a.volume=Math.max(0,Math.min(1,volVoice));a.src='audio/'+VOICE+'/'+keyOf(t)+'.mp3';
   var tm=setTimeout(function(){if(!started)fb();},500);
   var pr=a.play();if(pr&&pr.catch)pr.catch(fb);
   audioEl=a;
@@ -595,7 +604,7 @@ function twemojify(root){
 let stickerCount=parseInt(lsGet('hp_stickers','0'))||0;
 const stickerBtn=document.getElementById('stickerBtn'),toast=document.getElementById('toast'),toastE=document.getElementById('toastE'),toastT=document.getElementById('toastT');
 const PRAISE=['참 잘했어요!','최고예요!','멋져요!','대단해요!','와! 도장이다!'];
-function earnSticker(){stickerCount++;lsSet('hp_stickers',stickerCount);stickerBtn.textContent='🏅 '+stickerCount;renderStickerBoard();const em=STICKERS[(stickerCount-1)%STICKERS.length];toastE.textContent=em;toastT.textContent=PRAISE[Math.floor(Math.random()*PRAISE.length)];toast.classList.remove('show');void toast.offsetWidth;twemojify(toast);toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500);}
+function earnSticker(){sfxReward();stickerCount++;lsSet('hp_stickers',stickerCount);stickerBtn.textContent='🏅 '+stickerCount;renderStickerBoard();const em=STICKERS[(stickerCount-1)%STICKERS.length];toastE.textContent=em;toastT.textContent=PRAISE[Math.floor(Math.random()*PRAISE.length)];toast.classList.remove('show');void toast.offsetWidth;twemojify(toast);toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500);}
 function renderStickerBoard(){const g=document.getElementById('stickerGrid');g.innerHTML='';STICKERS.forEach((em,i)=>{const d=document.createElement('div');d.className='card sticker-slot'+(i<stickerCount?' got':'');d.innerHTML='<div class="big">'+(i<stickerCount?em:'❔')+'</div>';g.appendChild(d);});document.getElementById('stickerHint').textContent='모은 도장: '+stickerCount+'개 🏅';const sc2=document.getElementById('setStickerCount');if(sc2)sc2.textContent='모은 도장: '+stickerCount+'개';twemojify(document.getElementById('sticker'));twemojify(stickerBtn);}
 stickerBtn.addEventListener('click',()=>go('sticker'));
 
@@ -727,11 +736,11 @@ window.addEventListener('resize',()=>{if(document.getElementById('trace').classL
 let traceChar='ㄱ';
 function sayTrace(ch){if([...ch].length>1){speak(ch);return;}const c=CONS.find(x=>x.ch===ch);const v=VOWS.find(x=>x.ch===ch);speak(c?c.name:(v?v.sound:ch));}
 function fitGuide(){const h=traceStage.getBoundingClientRect().height||330;const n=[...traceChar].length;const frac=n>=3?0.33:(n===2?0.52:0.80);traceGuide.style.fontSize=Math.round(h*frac)+'px';}
-function selectTrace(ch){traceChar=ch;traceGuide.textContent=ch;fitGuide();clearTrace();renderStrokes(ch);sayTrace(ch);}
+function selectTrace(ch,silent){traceChar=ch;traceGuide.textContent=ch;fitGuide();clearTrace();renderStrokes(ch);if(!silent)sayTrace(ch);}
 const traceChips=document.getElementById('traceChips');
 function makeTraceChip(ch,on){const b=document.createElement('button');b.className='chip t'+(on?' on':'');b.textContent=ch;const long=[...ch].length>1;b.style.fontSize=long?'.85rem':'1.3rem';b.style.width=long?'auto':'50px';b.style.padding=long?'0 12px':'0';b.addEventListener('click',()=>{selectTrace(ch);document.querySelectorAll('#traceChips .chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');});return b;}
-function buildTraceChips(mode){traceChips.innerHTML='';let list=mode==='자음'?CONS.map(c=>c.ch):(mode==='모음'?VOWS.map(v=>v.ch):(mode==='받침'?BATCHIM_SYLL:TRACE_WORDS));list.forEach((ch,i)=>traceChips.appendChild(makeTraceChip(ch,i===0)));selectTrace(list[0]);}
-function loadCustomTrace(list){document.querySelectorAll('#traceModes button').forEach(x=>x.classList.remove('on'));traceChips.innerHTML='';list.forEach((ch,i)=>traceChips.appendChild(makeTraceChip(ch,i===0)));selectTrace(list[0]);}
+function buildTraceChips(mode){traceChips.innerHTML='';let list=mode==='자음'?CONS.map(c=>c.ch):(mode==='모음'?VOWS.map(v=>v.ch):(mode==='받침'?BATCHIM_SYLL:TRACE_WORDS));list.forEach((ch,i)=>traceChips.appendChild(makeTraceChip(ch,i===0)));selectTrace(list[0],true);}
+function loadCustomTrace(list){document.querySelectorAll('#traceModes button').forEach(x=>x.classList.remove('on'));traceChips.innerHTML='';list.forEach((ch,i)=>traceChips.appendChild(makeTraceChip(ch,i===0)));selectTrace(list[0],true);}
 const traceModes=document.getElementById('traceModes');
 ['자음','모음','받침','단어'].forEach((mo,i)=>{const b=document.createElement('button');if(i===0)b.className='on';b.textContent=mo;b.addEventListener('click',()=>{document.querySelectorAll('#traceModes button').forEach(x=>x.classList.remove('on'));b.classList.add('on');buildTraceChips(mo);});traceModes.appendChild(b);});
 buildTraceChips('자음');
@@ -744,7 +753,7 @@ strokeBtn.addEventListener('click',()=>{strokeOn=!strokeOn;strokeBtn.classList.t
 const board=document.getElementById('board'),mscore=document.getElementById('mscore'),mfeedback=document.getElementById('mfeedback');
 let PAIRS=6,matchMode='letter',matchBuilt=false,open=[],matched=0,lock=false;
 function newMatch(){matchBuilt=true;matched=0;open=[];lock=false;mfeedback.textContent='';mscore.textContent='짝 0 / '+PAIRS;let deck=[];if(matchMode==='letter'){const pool=shuffle(CONS.map(c=>c.ch).concat(VOWS.map(v=>v.ch))).slice(0,PAIRS);pool.forEach(ch=>{deck.push({id:ch,face:ch,kind:'l'});deck.push({id:ch,face:ch,kind:'l'});});}else{const all=[];Object.values(WORDS).forEach(arr=>arr.forEach(w=>all.push(w)));const pool=shuffle(all).slice(0,PAIRS);pool.forEach(w=>{deck.push({id:w[0],face:w[1],kind:'e'});deck.push({id:w[0],face:w[0],kind:'w'});});}deck=shuffle(deck);board.innerHTML='';deck.forEach(item=>{const card=document.createElement('button');card.className='mcard';card.dataset.id=item.id;const fs=item.kind==='w'?([...item.face].length>3?'.8rem':'1.05rem'):(item.kind==='e'?'2.4rem':'2.2rem');card.innerHTML='<div class="minner"><div class="mface mback">?</div><div class="mface mfront" style="font-size:'+fs+'">'+item.face+'</div></div>';card.addEventListener('click',()=>flip(card));board.appendChild(card);});twemojify(board);}
-function flip(card){if(lock||card.classList.contains('flipped')||card.classList.contains('matched'))return;card.classList.add('flipped');open.push(card);if(matchMode==='letter')sayJamo(card.dataset.id);else speak(card.dataset.id);if(open.length===2){lock=true;if(open[0].dataset.id===open[1].dataset.id){setTimeout(()=>{open.forEach(c=>c.classList.add('matched'));open=[];matched++;mscore.textContent='짝 '+matched+' / '+PAIRS;lock=false;if(matched===PAIRS){mfeedback.textContent='모두 찾았어요! 🎉';confetti();earnSticker();}},450);}else{setTimeout(()=>{open.forEach(c=>c.classList.remove('flipped'));open=[];lock=false;},850);}}}
+function flip(card){if(lock||card.classList.contains('flipped')||card.classList.contains('matched'))return;card.classList.add('flipped');open.push(card);if(matchMode==='letter')sayJamo(card.dataset.id);else speak(card.dataset.id);if(open.length===2){lock=true;if(open[0].dataset.id===open[1].dataset.id){setTimeout(()=>{sfxCorrect();open.forEach(c=>c.classList.add('matched'));open=[];matched++;mscore.textContent='짝 '+matched+' / '+PAIRS;lock=false;if(matched===PAIRS){mfeedback.textContent='모두 찾았어요! 🎉';confetti();earnSticker();}},450);}else{sfxWrong();setTimeout(()=>{open.forEach(c=>c.classList.remove('flipped'));open=[];lock=false;},850);}}}
 const matchModeBox=document.getElementById('matchMode');
 [['글자','letter'],['단어','word']].forEach((m,i)=>{const b=document.createElement('button');if(i===0)b.className='on';b.textContent=m[0];b.addEventListener('click',()=>{document.querySelectorAll('#matchMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');matchMode=m[1];newMatch();});matchModeBox.appendChild(b);});
 const matchDiff=document.getElementById('matchDiff');
@@ -765,7 +774,7 @@ function qMakeNode(item,side){const b=document.createElement('button');b.classNa
 function newQuiz(){qMatched=0;qPairsList=[];qfeedback.textContent='';qLines.innerHTML='';const items=shuffle(qPool()).slice(0,quizPairs);qscore.textContent='0 / '+items.length;qLeft.innerHTML='';qRight.innerHTML='';shuffle(items).forEach(it=>qLeft.appendChild(qMakeNode(it,'l')));shuffle(items).forEach(it=>qRight.appendChild(qMakeNode(it,'r')));twemojify(qBoard);}
 function qPoint(e){const b=qBoard.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top};}
 function qMove(e){if(!qDragging)return;const p=qPoint(e);if(Math.abs(p.x-qStartC.x)+Math.abs(p.y-qStartC.y)>8)qStartMoved=true;redrawLines({x1:qStartC.x,y1:qStartC.y,x2:p.x,y2:p.y});e.preventDefault();}
-function qUp(e){if(!qDragging)return;qDragging=false;if(!qStartMoved){if(qStart)speak(qStart._item.say);redrawLines();qStart=null;return;}const el=document.elementFromPoint(e.clientX,e.clientY);const target=el?el.closest('.qnode'):null;if(target&&target!==qStart&&target.dataset.side!==qStart.dataset.side&&!target.classList.contains('matched')){if(target.dataset.key===qStart.dataset.key){const l=qStart.dataset.side==='l'?qStart:target,r=qStart.dataset.side==='r'?qStart:target;qStart.classList.add('matched');target.classList.add('matched');qPairsList.push({l:l,r:r});qMatched++;qscore.textContent=qMatched+' / '+qLeft.children.length;speak(qStart._item.say);if(qMatched===qLeft.children.length){qfeedback.textContent='다 이었어요! 🎉';confetti();earnSticker();}}else{target.classList.add('bad');setTimeout(()=>target.classList.remove('bad'),400);}}redrawLines();qStart=null;}
+function qUp(e){if(!qDragging)return;qDragging=false;if(!qStartMoved){if(qStart)speak(qStart._item.say);redrawLines();qStart=null;return;}const el=document.elementFromPoint(e.clientX,e.clientY);const target=el?el.closest('.qnode'):null;if(target&&target!==qStart&&target.dataset.side!==qStart.dataset.side&&!target.classList.contains('matched')){if(target.dataset.key===qStart.dataset.key){const l=qStart.dataset.side==='l'?qStart:target,r=qStart.dataset.side==='r'?qStart:target;sfxCorrect();qStart.classList.add('matched');target.classList.add('matched');qPairsList.push({l:l,r:r});qMatched++;qscore.textContent=qMatched+' / '+qLeft.children.length;speak(qStart._item.say);if(qMatched===qLeft.children.length){qfeedback.textContent='다 이었어요! 🎉';confetti();earnSticker();}}else{sfxWrong();target.classList.add('bad');setTimeout(()=>target.classList.remove('bad'),400);}}redrawLines();qStart=null;}
 window.addEventListener('pointermove',qMove);
 window.addEventListener('pointerup',qUp);
 window.addEventListener('pointercancel',()=>{qDragging=false;redrawLines();});
@@ -778,7 +787,7 @@ window.addEventListener('resize',()=>{if(document.getElementById('quiz').classLi
 
 const VOICES=[['여성','f'],['아이','kid'],['남성','m']];
 const voicePick=document.getElementById('voicePick');
-VOICES.forEach(vc=>{const b=document.createElement('button');if(vc[1]===VOICE)b.className='on';b.textContent=vc[0];b.addEventListener('click',()=>{VOICE=vc[1];lsSet('hp_voice',VOICE);document.querySelectorAll('#voicePick button').forEach(x=>x.classList.remove('on'));b.classList.add('on');speak('안녕');});voicePick.appendChild(b);});
+VOICES.forEach(vc=>{const b=document.createElement('button');if(vc[1]===VOICE)b.className='on';b.textContent=vc[0];b.addEventListener('click',()=>{VOICE=vc[1];lsSet('hp_voice',VOICE);document.querySelectorAll('#voicePick button').forEach(x=>x.classList.remove('on'));b.classList.add('on');probeMp3();setTimeout(()=>speak('안녕'),250);});voicePick.appendChild(b);});
 const SPEEDS=[['느리게',0.6],['보통',0.8],['빠르게',1.0]];
 const speedPick=document.getElementById('speedPick');
 SPEEDS.forEach(sp=>{const b=document.createElement('button');if(Math.abs(sp[1]-RATE)<0.01)b.className='on';b.textContent=sp[0];b.addEventListener('click',()=>{RATE=sp[1];lsSet('hp_rate',RATE);document.querySelectorAll('#speedPick button').forEach(x=>x.classList.remove('on'));b.classList.add('on');speak('안녕');});speedPick.appendChild(b);});
@@ -846,12 +855,12 @@ function checkListen(btn,o){
   listenTry++;lsSet('hp_listen_try',listenTry);
   if(correct){
     listenCorrect++;lsSet('hp_listen_correct',listenCorrect);
-    btn.classList.add('good');speak(listenTarget.say);listenScore++;
+    sfxCorrect();btn.classList.add('good');speak(listenTarget.say);listenScore++;
     var s=document.getElementById('lscore');if(s)s.textContent=listenScore+' / '+LISTEN_LEN;
     document.querySelectorAll('#listenOpts .lopt').forEach(function(x){x.disabled=true;});
     if(listenScore>=LISTEN_LEN){document.getElementById('lfeedback').textContent='다 맞혔어요! 🎉';confetti();earnSticker();completeMission('play');setTimeout(startListenRound,1500);}
     else{document.getElementById('lfeedback').textContent='잘했어요! 👍';setTimeout(newListenQuestion,950);}
-  }else{btn.classList.add('bad');setTimeout(function(){btn.classList.remove('bad');},420);speak(listenTarget.say);}
+  }else{sfxWrong();btn.classList.add('bad');setTimeout(function(){btn.classList.remove('bad');},420);speak(listenTarget.say);}
 }
 var listenModeBox=document.getElementById('listenMode');
 [['글자','letter'],['단어','word']].forEach(function(m,i){var b=document.createElement('button');if(i===0)b.className='on';b.textContent=m[0];b.addEventListener('click',function(){listenMode=m[1];document.querySelectorAll('#listenMode button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');startListenRound();});listenModeBox.appendChild(b);});
@@ -871,6 +880,38 @@ document.getElementById('mrowLetter').addEventListener('click',openTodayLetter);
 document.getElementById('mrowWord').addEventListener('click',function(){openWord(todayWord[0],todayWord[1]);});
 document.getElementById('mrowPlay').addEventListener('click',function(){go('listen');});
 loadMission();renderMission();
+
+/* ===== 효과음 + 배경음악 (Web Audio) ===== */
+var AC=null,bgmGain=null,sfxGain=null;
+function actx(){
+  if(!AC){try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();bgmGain=AC.createGain();bgmGain.gain.value=volBgm;bgmGain.connect(AC.destination);sfxGain=AC.createGain();sfxGain.gain.value=volSfx;sfxGain.connect(AC.destination);}catch(e){AC=null;}}
+  if(AC&&AC.state==='suspended'){try{AC.resume();}catch(e){}}
+  return AC;
+}
+var sfxOn=lsGet('hp_sfx','1')!=='0';
+var bgmOn=lsGet('hp_bgm','1')!=='0';
+function tone(freq,start,dur,type,vol){var ac=actx();if(!ac||!freq)return;var o=ac.createOscillator(),g=ac.createGain();o.type=type||'sine';o.frequency.value=freq;var t0=ac.currentTime+start;g.gain.setValueAtTime(0.0001,t0);g.gain.linearRampToValueAtTime(vol||0.2,t0+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g).connect(sfxGain);o.start(t0);o.stop(t0+dur+0.05);}
+function sfxCorrect(){if(!sfxOn)return;tone(784,0,0.16,'triangle',0.25);tone(1046,0.10,0.18,'triangle',0.25);tone(1318,0.20,0.34,'triangle',0.22);}
+function sfxWrong(){if(!sfxOn)return;tone(392,0,0.18,'sine',0.18);tone(311,0.13,0.30,'sine',0.18);}
+function sfxReward(){if(!sfxOn)return;[523,659,784,1046].forEach(function(f,i){tone(f,i*0.09,0.32,'triangle',0.22);});}
+var BGM=[[523,1],[659,1],[784,1],[1046,1],[784,1],[659,1],[698,1],[880,1],[784,2],[0,1],[587,1],[698,1],[880,1],[784,1],[659,1],[523,1],[587,1],[659,1],[523,2],[0,1]];
+var bgmPlaying=false,bgmStep=0,bgmNext=0,bgmTimer=null,STEP=0.28;
+function bgmNote(freq,time,dur,vol,type){var ac=actx();if(!ac||!freq)return;var o=ac.createOscillator(),g=ac.createGain();o.type=type||'triangle';o.frequency.value=freq;g.gain.setValueAtTime(0.0001,time);g.gain.linearRampToValueAtTime(vol,time+0.02);g.gain.exponentialRampToValueAtTime(0.0001,time+dur*0.9);o.connect(g).connect(bgmGain);o.start(time);o.stop(time+dur);}
+function bgmSched(){var ac=actx();if(!ac||!bgmPlaying)return;while(bgmNext<ac.currentTime+0.25){var n=BGM[bgmStep%BGM.length];bgmNote(n[0],bgmNext,n[1]*STEP,0.12,'triangle');if(bgmStep%4===0){var bass=(Math.floor(bgmStep/4)%2===0)?131:196;bgmNote(bass,bgmNext,STEP*1.6,0.10,'sine');}bgmNext+=n[1]*STEP;bgmStep++;}bgmTimer=setTimeout(bgmSched,70);}
+function bgmStart(){if(bgmPlaying)return;var ac=actx();if(!ac)return;bgmPlaying=true;bgmStep=0;bgmNext=ac.currentTime+0.1;bgmSched();}
+function bgmStop(){bgmPlaying=false;if(bgmTimer){clearTimeout(bgmTimer);bgmTimer=null;}}
+function firstAudioGesture(){try{actx();}catch(e){}if(bgmOn)bgmStart();document.removeEventListener('pointerdown',firstAudioGesture,true);document.removeEventListener('touchend',firstAudioGesture,true);}
+document.addEventListener('pointerdown',firstAudioGesture,true);
+document.addEventListener('touchend',firstAudioGesture,true);
+function setBgmBtn(){var b=document.getElementById('bgmToggle');if(b){b.textContent='배경음악: '+(bgmOn?'켜짐':'꺼짐');b.classList.toggle('off',!bgmOn);}}
+function setSfxBtn(){var b=document.getElementById('sfxToggle');if(b){b.textContent='효과음: '+(sfxOn?'켜짐':'꺼짐');b.classList.toggle('off',!sfxOn);}}
+var _bg=document.getElementById('bgmToggle');if(_bg)_bg.addEventListener('click',function(){bgmOn=!bgmOn;lsSet('hp_bgm',bgmOn?'1':'0');setBgmBtn();if(bgmOn)bgmStart();else bgmStop();});
+var _sf=document.getElementById('sfxToggle');if(_sf)_sf.addEventListener('click',function(){sfxOn=!sfxOn;lsSet('hp_sfx',sfxOn?'1':'0');setSfxBtn();if(sfxOn)sfxCorrect();});
+function _pct(v){return Math.round(v*100);}
+var _vv=document.getElementById('volVoice');if(_vv){_vv.value=_pct(volVoice);_vv.addEventListener('input',function(){volVoice=(+_vv.value)/100;lsSet('hp_vol_voice',volVoice);});_vv.addEventListener('change',function(){speak('안녕');});}
+var _vs=document.getElementById('volSfx');if(_vs){_vs.value=_pct(volSfx);_vs.addEventListener('input',function(){volSfx=(+_vs.value)/100;lsSet('hp_vol_sfx',volSfx);if(sfxGain)sfxGain.gain.value=volSfx;});_vs.addEventListener('change',function(){sfxCorrect();});}
+var _vb=document.getElementById('volBgm');if(_vb){_vb.value=_pct(volBgm);_vb.addEventListener('input',function(){volBgm=(+_vb.value)/100;lsSet('hp_vol_bgm',volBgm);if(bgmGain)bgmGain.gain.value=volBgm;});}
+setBgmBtn();setSfxBtn();
 
 twemojify(document.body);
 </script>
